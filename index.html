@@ -17,6 +17,11 @@
         input, textarea { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); outline: none; text-align: center; color: white; }
         input:focus, textarea:focus { border-color: var(--accent); }
         .modal-blur { backdrop-filter: blur(15px); background: rgba(0, 0, 0, 0.85); }
+        @keyframes highlight {
+            0% { border-color: var(--accent); }
+            100% { border-color: rgba(255, 255, 255, 0.08); }
+        }
+        .new-entry-anim { animation: highlight 2s ease-out; }
     </style>
 </head>
 <body class="p-3 min-h-screen flex flex-col items-center">
@@ -62,12 +67,15 @@
         </section>
     </div>
 
-    <!-- MODAL DỮ LIỆU MỚI -->
+    <!-- MODAL DỮ LIỆU -->
     <div id="backup-modal" class="modal-blur fixed inset-0 z-50 hidden items-center justify-center p-6">
         <div class="glass w-full max-w-[320px] rounded-[2.5rem] p-7 space-y-4 text-center border-zinc-800 shadow-3xl">
-            <h3 class="text-xs font-black italic uppercase tracking-widest text-orange-500 mb-2 font-mono-custom italic">QUẢN LÝ DỮ LIỆU</h3>
+            <h3 class="text-xs font-black italic uppercase tracking-widest text-orange-500 mb-2 font-mono-custom">QUẢN LÝ DỮ LIỆU</h3>
             
-            <p class="text-[8px] text-zinc-500 uppercase font-bold text-left px-1">Mã dữ liệu hiện tại:</p>
+            <div id="backup-alert" class="hidden">
+                <p class="text-[10px] text-rose-500 font-black uppercase animate-bounce mb-2">⚠️ HÃY SAO LƯU MÃ NÀY NGAY!</p>
+            </div>
+
             <textarea id="data-area" class="w-full h-32 rounded-xl p-3 text-[10px] font-mono-custom mb-2 text-left" placeholder="Dán mã dữ liệu vào đây..."></textarea>
 
             <div class="grid grid-cols-2 gap-2">
@@ -75,7 +83,7 @@
                 <button onclick="importData()" class="neo-button bg-orange-600 text-white py-3 rounded-xl text-[9px] font-black uppercase">Lưu Mã</button>
             </div>
             
-            <button onclick="clearDataArea()" class="neo-button w-full bg-zinc-900 border border-zinc-800 py-3 rounded-xl text-[9px] font-black uppercase text-rose-500">Xóa Trắng Ô Nhập</button>
+            <button onclick="clearDataArea()" class="neo-button w-full bg-zinc-900 border border-zinc-800 py-3 rounded-xl text-[9px] font-black uppercase text-zinc-500">Xóa Trắng Ô Nhập</button>
             
             <button onclick="toggleModal(false)" class="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em] pt-4 block w-full text-center">ĐÓNG</button>
         </div>
@@ -97,12 +105,18 @@
             updateUI(); 
         };
 
-        function toggleModal(show) { 
+        function toggleModal(show, isBackupReminder = false) { 
             const m = document.getElementById('backup-modal'); 
             const area = document.getElementById('data-area');
+            const alert = document.getElementById('backup-alert');
+            
             m.classList.toggle('hidden', !show); 
             m.classList.toggle('flex', show); 
-            if(show) area.value = JSON.stringify(logs);
+            
+            if(show) {
+                area.value = JSON.stringify(logs);
+                alert.classList.toggle('hidden', !isBackupReminder);
+            }
         }
 
         function clearDataArea() {
@@ -141,7 +155,7 @@
             area.select();
             area.setSelectionRange(0, 99999);
             document.execCommand('copy');
-            showToast('ĐÃ COPY MÃ'); 
+            showToast('ĐÃ COPY MÃ SAO LƯU'); 
         }
 
         function addEntry() {
@@ -153,11 +167,17 @@
             if (isNaN(amount) || isNaN(btc)) return showToast('DỮ LIỆU LỖI');
             const now = new Date(); 
             const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear().toString().slice(-2)}`;
+            
             logs.push({ amount, btc, date: dateStr });
             localStorage.setItem('btc_dca_logs', JSON.stringify(logs));
             updateUI(); 
             input.value = ''; 
-            showToast('ĐÃ THÊM LỆNH');
+            
+            // TỰ ĐỘNG BẬT BẢNG SAO LƯU SAU KHI THÊM
+            setTimeout(() => {
+                toggleModal(true, true);
+                showToast('HÃY SAO LƯU LỆNH MỚI!');
+            }, 500);
         }
 
         function deleteEntry(index) { 
@@ -165,7 +185,8 @@
             if (confirm("Xóa lệnh này?")) { 
                 logs.splice(index, 1); 
                 localStorage.setItem('btc_dca_logs', JSON.stringify(logs)); 
-                updateUI(); 
+                updateUI();
+                toggleModal(true, true); // Nhắc sao lưu sau khi xóa
             } 
         }
 
