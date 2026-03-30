@@ -14,8 +14,8 @@
         .price-up { color: var(--emerald); }
         .price-down { color: var(--rose); }
         .font-mono-custom { font-family: 'JetBrains Mono', monospace; }
-        input { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); outline: none; text-align: center; color: white; }
-        input:focus { border-color: var(--accent); }
+        input, textarea { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); outline: none; text-align: center; color: white; }
+        input:focus, textarea:focus { border-color: var(--accent); }
         .modal-blur { backdrop-filter: blur(15px); background: rgba(0, 0, 0, 0.85); }
     </style>
 </head>
@@ -62,25 +62,30 @@
         </section>
     </div>
 
+    <!-- MODAL DỮ LIỆU MỚI -->
     <div id="backup-modal" class="modal-blur fixed inset-0 z-50 hidden items-center justify-center p-6">
-        <div class="glass w-full max-w-[280px] rounded-[2.5rem] p-7 space-y-4 text-center border-zinc-800 shadow-3xl">
-            <h3 class="text-xs font-black italic uppercase tracking-widest text-orange-500 mb-2">QUẢN LÝ DỮ LIỆU</h3>
-            <div class="space-y-2.5">
-                <button onclick="copyToClipboard()" class="neo-button w-full bg-white text-black py-3.5 rounded-xl text-[9px] font-black uppercase">Sao chép Mã Gốc</button>
-                <button onclick="exportData()" class="neo-button w-full bg-zinc-900 border border-zinc-800 py-3.5 rounded-xl text-[9px] font-black uppercase text-zinc-400">Xuất File .JSON</button>
+        <div class="glass w-full max-w-[320px] rounded-[2.5rem] p-7 space-y-4 text-center border-zinc-800 shadow-3xl">
+            <h3 class="text-xs font-black italic uppercase tracking-widest text-orange-500 mb-2 font-mono-custom italic">QUẢN LÝ DỮ LIỆU</h3>
+            
+            <p class="text-[8px] text-zinc-500 uppercase font-bold text-left px-1">Mã dữ liệu hiện tại:</p>
+            <textarea id="data-area" class="w-full h-32 rounded-xl p-3 text-[10px] font-mono-custom mb-2 text-left" placeholder="Dán mã dữ liệu vào đây..."></textarea>
+
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="copyToClipboard()" class="neo-button bg-white text-black py-3 rounded-xl text-[9px] font-black uppercase">Copy Mã</button>
+                <button onclick="importData()" class="neo-button bg-orange-600 text-white py-3 rounded-xl text-[9px] font-black uppercase">Lưu Mã</button>
             </div>
-            <button onclick="toggleModal(false)" class="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em] pt-4">ĐÓNG</button>
+            
+            <button onclick="clearDataArea()" class="neo-button w-full bg-zinc-900 border border-zinc-800 py-3 rounded-xl text-[9px] font-black uppercase text-rose-500">Xóa Trắng Ô Nhập</button>
+            
+            <button onclick="toggleModal(false)" class="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em] pt-4 block w-full text-center">ĐÓNG</button>
         </div>
     </div>
+
     <div id="toast" class="fixed bottom-12 bg-white text-black text-[10px] font-black px-6 py-3 rounded-full shadow-2xl transition-all opacity-0 translate-y-4 pointer-events-none z-[60] uppercase">THÔNG BÁO</div>
 
     <script>
         const USD_VND_RATE = 25450;
-        
-        // DỮ LIỆU CHUẨN THEO YÊU CẦU: CHỈ CÓ SÀN NÀY 5380$ = 0.0529 BTC
-        const INITIAL_DATA = [
-            {"amount": 5380, "btc": 0.0529, "date": "GỐC"}
-        ];
+        const INITIAL_DATA = [{"amount": 5380, "btc": 0.0529, "date": "GỐC"}];
         
         let logs = JSON.parse(localStorage.getItem('btc_dca_logs')) || INITIAL_DATA;
         let currentPrice = 0; let lastPrice = 0;
@@ -94,8 +99,34 @@
 
         function toggleModal(show) { 
             const m = document.getElementById('backup-modal'); 
+            const area = document.getElementById('data-area');
             m.classList.toggle('hidden', !show); 
             m.classList.toggle('flex', show); 
+            if(show) area.value = JSON.stringify(logs);
+        }
+
+        function clearDataArea() {
+            document.getElementById('data-area').value = "";
+            showToast('ĐÃ XÓA TRỐNG Ô NHẬP');
+        }
+
+        function importData() {
+            const val = document.getElementById('data-area').value.trim();
+            if(!val) return showToast('Ô NHẬP ĐANG TRỐNG');
+            try {
+                const parsed = JSON.parse(val);
+                if(Array.isArray(parsed)) {
+                    logs = parsed;
+                    localStorage.setItem('btc_dca_logs', JSON.stringify(logs));
+                    updateUI();
+                    showToast('ĐÃ CẬP NHẬT DỮ LIỆU');
+                    toggleModal(false);
+                } else {
+                    showToast('MÃ KHÔNG ĐÚNG ĐỊNH DẠNG');
+                }
+            } catch(e) {
+                showToast('MÃ LỖI, HÃY KIỂM TRA LẠI');
+            }
         }
 
         function showToast(m) { 
@@ -106,7 +137,11 @@
         }
 
         function copyToClipboard() { 
-            navigator.clipboard.writeText(JSON.stringify(logs)).then(() => showToast('ĐÃ COPY MÃ DỮ LIỆU')); 
+            const area = document.getElementById('data-area');
+            area.select();
+            area.setSelectionRange(0, 99999);
+            document.execCommand('copy');
+            showToast('ĐÃ COPY MÃ'); 
         }
 
         function addEntry() {
@@ -132,11 +167,6 @@
                 localStorage.setItem('btc_dca_logs', JSON.stringify(logs)); 
                 updateUI(); 
             } 
-        }
-
-        function exportData() { 
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs)); 
-            const a = document.createElement('a'); a.href = dataStr; a.download = `btc_backup.json`; a.click(); 
         }
 
         function updateUI() {
